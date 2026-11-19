@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classic Ludo Game</title>
+<style>
+:root{--red:#e74c3c;--green:#27ae60;--yellow:#f1c40f;--blue:#3498db;--ink:#243044}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,Arial,sans-serif;background:linear-gradient(135deg,#eaf2ff,#f8f4ff);color:var(--ink);min-height:100vh}
+header{text-align:center;padding:20px 12px 8px}
+h1{margin:0;font-size:clamp(28px,5vw,42px);color:#263b63}
+header p{margin:6px 0 0;color:#60708a}
+main{max-width:1050px;margin:auto;padding:12px;display:grid;grid-template-columns:minmax(280px,620px) minmax(240px,1fr);gap:18px;align-items:start}
+.board-wrap{background:white;padding:12px;border-radius:20px;box-shadow:0 12px 35px #293c641c}
+#board{width:100%;display:block;aspect-ratio:1/1;touch-action:manipulation}
+.cell{stroke:#cbd3df;stroke-width:1}
+.home-red{fill:#f8c5c0}.home-green{fill:#bce8ca}.home-yellow{fill:#fff0ad}.home-blue{fill:#b9dcf7}
+.center{fill:#fff;stroke:#9aa8bd;stroke-width:2}
+.side{stroke:#fff;stroke-width:2}
+.token{stroke:#fff;stroke-width:2;cursor:pointer}
+.token:focus{outline:none;stroke:#111;stroke-width:4}
+.panel{background:white;border-radius:20px;padding:18px;box-shadow:0 12px 35px #293c641c}
+.turn{font-weight:800;font-size:20px;margin-bottom:12px}
+.dice{font-size:62px;line-height:1.1;text-align:center;margin:8px 0 14px}
+button{border:0;border-radius:12px;padding:12px 16px;font-weight:750;font-size:16px;cursor:pointer;background:#263b63;color:white;width:100%}
+button:disabled{opacity:.45;cursor:not-allowed}
+.status{background:#f1f5fb;border-radius:12px;padding:12px;min-height:64px;margin:14px 0;line-height:1.45}
+.players{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:12px 0}
+.player{padding:9px;border-radius:10px;background:#f4f6fa;font-weight:700;font-size:14px}
+.dot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px}
+.rules{font-size:13px;color:#64728a;line-height:1.55;margin-top:16px}
+.rules h3{color:#263b63;margin-bottom:4px}
+footer{text-align:center;color:#8290a5;font-size:12px;padding:4px 10px 20px}
+@media(max-width:760px){main{grid-template-columns:1fr;max-width:650px}.panel{order:-1}.dice{font-size:48px}.board-wrap{padding:7px}}
+</style>
+</head>
+<body>
+<header><h1>🎲 Classic Ludo</h1><p>Play with 2–4 players on one device</p></header>
+<main>
+ <section class="board-wrap"><svg id="board" viewBox="0 0 600 600" role="img" aria-label="Ludo board"></svg></section>
+ <aside class="panel">
+  <div class="turn" id="turn">Red's turn</div>
+  <div class="dice" id="dice">⚀</div>
+  <button id="roll">Roll the dice</button>
+  <div class="status" id="status">Roll a 6 to bring a token out of the yard. Then select a highlighted token to move.</div>
+  <div class="players" id="players"></div>
+  <button id="newgame" style="background:#edf1f7;color:#263b63">New game</button>
+  <div class="rules"><h3>How to play</h3>
+   • Roll a 6 to bring a token onto the track.<br>
+   • Select one of your highlighted tokens to move by the dice number.<br>
+   • Rolling a 6 gives another turn.<br>
+   • Land on an opponent to send them home, except on safe squares.<br>
+   • Reach the finish lane and roll the exact number to finish.<br>
+   • First player to finish all 4 tokens wins.
+  </div>
+ </aside>
+</main>
+<footer>Made for a Programming for Problem Solving (PPS) project</footer>
+<script>
+const svg=document.getElementById('board');
+const colors=['red','green','yellow','blue'];
+const hex={red:'#e74c3c',green:'#27ae60',yellow:'#f1c40f',blue:'#3498db'};
+const names=['Red','Green','Yellow','Blue'];
+const starts=[0,13,26,39];
+const track=[];
+for(let x=1;x<=5;x++)track.push([x,7]);
+for(let y=6;y>=1;y--)track.push([6,y]);
+for(let y=0;y<=5;y++)track.push([7,y]);
+for(let x=8;x<=13;x++)track.push([x,6]);
+for(let x=14;x>=8;x--)track.push([x,7]);
+for(let y=8;y<=13;y++)track.push([7,y]);
+for(let y=14;y>=9;y--)track.push([8,y]);
+for(let x=9;x<=13;x++)track.push([x,8]);
+for(let y=9;y<=13;y++)track.push([7,y]);
+for(let x=6;x>=1;x--)track.push([6,x]);
+for(let y=5;y>=0;y--)track.push([5,y]);
+while(track.length>52)track.pop();
+// A conventional 52-square perimeter, drawn from a fixed coordinate route.
+const route=[[1,6],[2,6],[3,6],[4,6],[5,6],[6,5],[6,4],[6,3],[6,2],[6,1],[6,0],[7,0],[8,0],[8,1],[8,2],[8,3],[8,4],[8,5],[9,6],[10,6],[11,6],[12,6],[13,6],[14,6],[14,7],[14,8],[13,8],[12,8],[11,8],[10,8],[9,8],[8,9],[8,10],[8,11],[8,12],[8,13],[8,14],[7,14],[6,14],[6,13],[6,12],[6,11],[6,10],[6,9],[5,8],[4,8],[3,8],[2,8],[1,8],[0,8],[0,7],[0,6]];
+const safe=[0,8,13,21,26,34,39,47];
+const lanes=[
+ [[7,1],[7,2],[7,3],[7,4],[7,5],[7,6]],
+ [[13,7],[12,7],[11,7],[10,7],[9,7],[8,7]],
+ [[7,13],[7,12],[7,11],[7,10],[7,9],[7,8]],
+ [[1,7],[2,7],[3,7],[4,7],[5,7],[6,7]]
+];
+const yards=[
+ [[2.5,2.5],[4.5,2.5],[2.5,4.5],[4.5,4.5]],
+ [[10.5,2.5],[12.5,2.5],[10.5,4.5],[12.5,4.5]],
+ [[10.5,10.5],[12.5,10.5],[10.5,12.5],[12.5,12.5]],
+ [[2.5,10.5],[4.5,10.5],[2.5,12.5],[4.5,12.5]]
+];
+let players=4,turn=0,dice=0,rolled=false,gameOver=false;
+let tokens=[];
+function init(){
+ tokens=colors.map(()=>Array.from({length:4},()=>({step:-1,done:false})));
+ turn=0;dice=0;rolled=false;gameOver=false;
+ document.getElementById('status').textContent='Red starts. Roll a 6 to bring a token out of the yard.';
+ render();
+}
+function cell(x,y,fill='#fff'){
+ const s=40;return `<rect x="${x*s}" y="${y*s}" width="${s}" height="${s}" fill="${fill}" class="cell"/>`;
+}
+function drawBoard(){
+ let out='';
+ // base grid
+ for(let y=0;y<15;y++)for(let x=0;x<15;x++)out+=cell(x,y,'#fff');
+ // four home bases
+ out+='<rect x="0" y="0" width="240" height="240" rx="10" class="home-red"/>';
+ out+='<rect x="360" y="0" width="240" height="240" rx="10" class="home-green"/>';
+ out+='<rect x="360" y="360" width="240" height="240" rx="10" class="home-yellow"/>';
+ out+='<rect x="0" y="360" width="240" height="240" rx="10" class="home-blue"/>';
+ // track squares
+ route.forEach((p,i)=>{let fill=safe.includes(i)?'#e8edf4':'#fff';if(i===0)fill=hex.red;if(i===13)fill=hex.green;if(i===26)fill=hex.yellow;if(i===39)fill=hex.blue;out+=cell(p[0],p[1],fill)});
+ // home lanes
+ lanes.forEach((lane,i)=>lane.forEach((p,j)=>out+=cell(p[0],p[1],i===0?'#f7aaa3':i===1?'#a9dfba':i===2?'#ffe27a':'#a9d3f3')));
+ // center
+ out+='<path d="M240 240 L360 240 L300 300 Z" fill="'+hex.green+'"/><path d="M360 240 L360 360 L300 300 Z" fill="'+hex.yellow+'"/><path d="M360 360 L240 360 L300 300 Z" fill="'+hex.blue+'"/><path d="M240 360 L240 240 L300 300 Z" fill="'+hex.red+'"/>';
+ // yard circles
+ yards.forEach((arr,i)=>arr.forEach(p=>out+=`<circle cx="${p[0]*40}" cy="${p[1]*40}" r="19" fill="white" stroke="${hex[colors[i]]}" stroke-width="4"/>`));
+ svg.innerHTML=out;
+}
+function position(t,ci,ti){
+ if(t.done)return [300,300];
+ if(t.step<0){let p=yards[ci][ti];return [p[0]*40,p[1]*40]}
+ if(t.step<51){let p=route[(starts[ci]+t.step)%52];return [(p[0]+.5)*40,(p[1]+.5)*40]}
+ let p=lanes[ci][t.step-51];return [(p[0]+.5)*40,(p[1]+.5)*40];
+}
+function validMoves(){
+ return tokens[turn].map((t,i)=>({t,i})).filter(({t})=>!t.done&&((t.step===-1&&dice===6)||(t.step>=0&&t.step+dice<=56)));
+}
+function render(){
+ drawBoard();
+ const moves=rolled?validMoves().map(x=>x.i):[];
+ let out='';
+ tokens.forEach((arr,ci)=>arr.forEach((t,ti)=>{
+  const [x,y]=position(t,ci,ti),can=ci===turn&&moves.includes(ti);
+  out+=`<circle cx="${x}" cy="${y}" r="13" fill="${hex[colors[ci]]}" class="token" ${can?'style="filter:drop-shadow(0 0 5px #111);cursor:pointer"':''} data-player="${ci}" data-token="${ti}"><title>${names[ci]} token ${ti+1}</title></circle>`;
+ }));
+ svg.insertAdjacentHTML('beforeend',out);
+ svg.querySelectorAll('.token').forEach(el=>el.addEventListener('click',()=>moveToken(+el.dataset.player,+el.dataset.token)));
+ document.getElementById('turn').textContent=gameOver?'Game over':names[turn]+"'s turn";
+ document.getElementById('dice').textContent=['⚀','⚁','⚂','⚃','⚄','⚅'][dice-1]||'🎲';
+ document.getElementById('roll').disabled=rolled||gameOver;
+ document.getElementById('players').innerHTML=names.map((n,i)=>`<div class="player"><span class="dot" style="background:${hex[colors[i]]}"></span>${n}: ${tokens[i].filter(t=>t.done).length}/4 home</div>`).join('');
+}
+function rollDice(){
+ if(rolled||gameOver)return;
+ dice=Math.floor(Math.random()*6)+1;rolled=true;
+ let moves=validMoves();
+ document.getElementById('status').textContent=`${names[turn]} rolled ${dice}. `+(moves.length?'Select a highlighted token to move.':'No legal move. Press the button to continue.');
+ if(!moves.length){rolled=false;if(dice!==6)nextTurn();else document.getElementById('status').textContent+=' You get another roll.'}
+ render();
+}
+function moveToken(ci,ti){
+ if(!rolled||ci!==turn)return;
+ let t=tokens[ci][ti];if(!validMoves().some(x=>x.i===ti))return;
+ if(t.step===-1)t.step=0;else t.step+=dice;
+ let message=`${names[ci]} moved token ${ti+1}.`;
+ if(t.step===56){t.done=true;message+=` Token reached home!`;}
+ else if(t.step<51){
+  let global=(starts[ci]+t.step)%52;
+  if(!safe.includes(global)){
+   tokens.forEach((arr,oi)=>{if(oi===ci)return;arr.forEach(other=>{
+    if(other.step>=0&&other.step<51&&(starts[oi]+other.step)%52===global){other.step=-1;message+=` Captured ${names[oi]}'s token!`;}
+   })});
+  }
+ }
+ if(tokens[ci].every(x=>x.done)){gameOver=true;message+=` ${names[ci]} wins the game!`;}
+ rolled=false;
+ if(!gameOver&&dice!==6)nextTurn();
+ document.getElementById('status').textContent=message+(dice===6&&!gameOver?' Roll again!':'');
+ render();
+}
+function nextTurn(){turn=(turn+1)%players;}
+document.getElementById('roll').addEventListener('click',rollDice);
+document.getElementById('newgame').addEventListener('click',init);
+init();
+</script>
+</body>
+</html>
